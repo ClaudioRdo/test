@@ -21,7 +21,10 @@ jobs:
 
       - name: Ensure Branch Exists in Amplify
         env:
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}  # Configura la región de AWS
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -e
           BRANCH_NAME="$branch"
@@ -34,12 +37,16 @@ jobs:
 
       - name: Trigger Amplify Deploy
         env:
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}  # Configura la región de AWS
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: echo "Amplify will deploy branch $branch"
 
       - name: Wait for Deployment to Complete
         env:
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}  # Configura la región de AWS
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -e
           BRANCH_NAME="$branch"
