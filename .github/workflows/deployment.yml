@@ -23,7 +23,7 @@ jobs:
       - name: Ensure Branch Exists in Amplify
         run: |
           set -e
-          BRANCH_NAME="${env.branch}"
+          BRANCH_NAME="$branch"
           if aws amplify list-branches --app-id "${{ secrets.AMPLIFY_APP_ID }}" | grep -q "\"branchName\": \"$BRANCH_NAME\""; then
             echo "Branch $BRANCH_NAME already exists."
           else
