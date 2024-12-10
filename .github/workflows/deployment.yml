@@ -1,0 +1,69 @@
+# .github/workflows/deploy-and-test.yml en repo test
+name: Deploy Branch and Run Tests
+
+on:
+  repository_dispatch:
+    types: [deploy-and-test]
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo B (suite de tests)
+        uses: actions/checkout@v3
+
+      - name: Extract Branch Name
+        id: extract_branch_name
+        run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
+      - name: Generate Amplify URL
+        run: echo "AMPLIFY_URL=https://${{ secrets.AMPLIFY_DOMAIN }}/${{ env.branch }}" >> $GITHUB_ENV
+
+      - name: Ensure Branch Exists in Amplify
+        run: |
+          set -e
+          BRANCH_NAME="${env.branch}"
+          if aws amplify list-branches --app-id "${{ secrets.AMPLIFY_APP_ID }}" | grep -q "\"branchName\": \"$BRANCH_NAME\""; then
+            echo "Branch $BRANCH_NAME already exists."
+          else
+            echo "Creating branch $BRANCH_NAME in Amplify."
+            aws amplify create-branch --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME"
+          fi
+
+      - name: Trigger Amplify Deploy
+        run: |
+          echo "Amplify will deploy branch ${env.branch}"
+          # Amplify maneja automáticamente el despliegue al detectar el branch
+
+      - name: Wait for Deployment to Complete
+        run: |
+          set -e
+          BRANCH_NAME="${env.branch}"
+          MAX_RETRIES=20
+          RETRIES=0
+          while true; do
+            JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text)
+            STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text)
+            echo "Current status: $STATUS"
+            if [[ "$STATUS" == "SUCCEED" ]]; then
+              echo "Deployment succeeded!"
+              break
+            elif [[ "$STATUS" == "FAILED" ]]; then
+              echo "Deployment failed!"
+              exit 1
+            fi
+            if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+              echo "Timeout waiting for deployment to complete."
+              exit 1
+            fi
+            ((RETRIES++))
+            sleep 15
+          done
+
+      - name: Run Tests
+        run: |
+          echo "Running tests against deployed URL: ${{ env.AMPLIFY_URL }}"
+          cd path/to/tests
+          npm ci  # Limpieza y preparación del entorno de pruebas
+          npm run test:e2e -- --baseUrl=${{ env.AMPLIFY_URL }}
