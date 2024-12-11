@@ -50,26 +50,35 @@ jobs:
         run: |
           set -e
           BRANCH_NAME="$branch"
-          MAX_RETRIES=20
+          MAX_RETRIES=40  # Aumentar el número de intentos
           RETRIES=0
           while true; do
+            # Obtener el ID del trabajo actual
             JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}")
+            # Obtener el estado del trabajo
             STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}")
             echo "Current status: $STATUS"
+            # Manejar estados posibles
             if [[ "$STATUS" == "SUCCEED" ]]; then
               echo "Deployment succeeded!"
               break
             elif [[ "$STATUS" == "FAILED" ]]; then
               echo "Deployment failed!"
               exit 1
+            elif [[ "$STATUS" == "RUNNING" ]]; then
+              echo "Deployment still in progress..."
+            else
+              echo "Unexpected status: $STATUS"
             fi
+            # Verificar si se alcanzó el límite de reintentos
             if [[ $RETRIES -ge $MAX_RETRIES ]]; then
               echo "Timeout waiting for deployment to complete."
               exit 1
             fi
             ((RETRIES++))
-            sleep 15
+            sleep 20  # Incrementar el intervalo de espera
           done
+
 
       - name: Run Tests
         run: |
