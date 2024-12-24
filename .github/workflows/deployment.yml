@@ -24,15 +24,17 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -e
           BRANCH_NAME="$branch"
-          if aws amplify list-branches --app-id "${{ secrets.AMPLIFY_APP_ID }}" --region "${{ secrets.AWS_REGION }}" | grep -q "\"branchName\": \"$BRANCH_NAME\""; then
-            echo "Branch $BRANCH_NAME already exists."
-          else
-            echo "Creating branch $BRANCH_NAME in Amplify."
+          echo "Checking if branch $BRANCH_NAME exists in Amplify..."
+          BRANCH_EXISTS=$(aws amplify list-branches --app-id "${{ secrets.AMPLIFY_APP_ID }}" --query "branches[?branchName=='$BRANCH_NAME']" --output text --region "${{ secrets.AWS_REGION }}")
+
+          if [[ -z "$BRANCH_EXISTS" ]]; then
+            echo "Branch $BRANCH_NAME does not exist. Creating it in Amplify..."
             aws amplify create-branch --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --region "${{ secrets.AWS_REGION }}"
+          else
+            echo "Branch $BRANCH_NAME already exists."
           fi
 
       - name: Trigger Amplify Deploy
@@ -40,7 +42,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: echo "Amplify will deploy branch $branch"
+        run: |
+          echo "Triggering deployment for branch $branch..."
+          aws amplify start-deployment --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$branch"
 
       - name: Wait for Deployment to Complete
         env:
@@ -50,15 +54,27 @@ jobs:
         run: |
           set -e
           BRANCH_NAME="$branch"
-          MAX_RETRIES=40  # Aumentar el número de intentos
+          MAX_RETRIES=40  # Número máximo de reintentos
           RETRIES=0
           while true; do
             # Obtener el ID del trabajo actual
             JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}")
+            
+            if [[ -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
+              echo "No job found for branch $BRANCH_NAME. Retrying..."
+              ((RETRIES++))
+              if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+                echo "Timeout waiting for a job to be created in Amplify."
+                exit 1
+              fi
+              sleep 20
+              continue
+            fi
+
             # Obtener el estado del trabajo
             STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}")
             echo "Current status: $STATUS"
-            # Manejar estados posibles
+
             if [[ "$STATUS" == "SUCCEED" ]]; then
               echo "Deployment succeeded!"
               break
@@ -70,15 +86,14 @@ jobs:
             else
               echo "Unexpected status: $STATUS"
             fi
-            # Verificar si se alcanzó el límite de reintentos
+
             if [[ $RETRIES -ge $MAX_RETRIES ]]; then
               echo "Timeout waiting for deployment to complete."
               exit 1
             fi
             ((RETRIES++))
-            sleep 20  # Incrementar el intervalo de espera
+            sleep 20
           done
-
 
       - name: Run Tests
         run: |
