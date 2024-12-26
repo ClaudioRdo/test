@@ -47,6 +47,7 @@ jobs:
           BRANCH_NAME="$branch"
           MAX_RETRIES=40  # Número máximo de reintentos
           RETRIES=0
+          
           while true; do
             # Obtener el ID del trabajo actual
             JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}")
@@ -73,18 +74,19 @@ jobs:
               echo "Deployment failed!"
               exit 1
             elif [[ "$STATUS" == "RUNNING" ]]; then
-              echo "Deployment still in progress..."
+              echo "Deployment still in progress... Retrying in 20 seconds."
             else
               echo "Unexpected status: $STATUS"
             fi
 
+            ((RETRIES++))
             if [[ $RETRIES -ge $MAX_RETRIES ]]; then
               echo "Timeout waiting for deployment to complete."
               exit 1
             fi
-            ((RETRIES++))
             sleep 20
           done
+
 
       - name: Run Tests
         run: |
