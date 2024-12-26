@@ -49,10 +49,12 @@ jobs:
           RETRIES=0
           
           while true; do
-            # Obtener el ID del trabajo actual
+            set +e
             JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}")
+            COMMAND_EXIT_CODE=$?
+            set -e
             
-            if [[ -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
+            if [[ $COMMAND_EXIT_CODE -ne 0 || -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
               echo "No job found for branch $BRANCH_NAME. Retrying..."
               ((RETRIES++))
               if [[ $RETRIES -ge $MAX_RETRIES ]]; then
@@ -63,8 +65,22 @@ jobs:
               continue
             fi
 
-            # Obtener el estado del trabajo
+            set +e
             STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}")
+            COMMAND_EXIT_CODE=$?
+            set -e
+
+            if [[ $COMMAND_EXIT_CODE -ne 0 ]]; then
+              echo "Failed to get job status. Retrying..."
+              ((RETRIES++))
+              if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+                echo "Timeout waiting for deployment to complete."
+                exit 1
+              fi
+              sleep 20
+              continue
+            fi
+
             echo "Current status: $STATUS"
 
             if [[ "$STATUS" == "SUCCEED" ]]; then
@@ -86,6 +102,8 @@ jobs:
             fi
             sleep 20
           done
+
+
 
 
       - name: Run Tests
