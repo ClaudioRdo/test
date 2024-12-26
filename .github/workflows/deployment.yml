@@ -33,8 +33,10 @@ jobs:
           if [[ -z "$BRANCH_EXISTS" ]]; then
             echo "Branch $BRANCH_NAME does not exist. Creating it in Amplify..."
             aws amplify create-branch --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --region "${{ secrets.AWS_REGION }}"
+            echo "Starting deployment for branch $BRANCH_NAME..."
+            aws amplify start-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-type RELEASE --region "${{ secrets.AWS_REGION }}"
           else
-            echo "Branch $BRANCH_NAME already exists."
+            echo "Branch $BRANCH_NAME already exists. No need to create it."
           fi
 
       - name: Wait for Deployment to Complete
