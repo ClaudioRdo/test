@@ -49,13 +49,17 @@ jobs:
           RETRIES=0
           
           while true; do
-            set +e
-            JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}")
-            COMMAND_EXIT_CODE=$?
-            set -e
+            echo "Attempt #$((RETRIES+1)) to check deployment status..."
             
+            # Obtener el ID del trabajo actual
+            JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
+            COMMAND_EXIT_CODE=$?
+
+            echo "JOB_ID output: $JOB_ID"
+            echo "Command exit code: $COMMAND_EXIT_CODE"
+
             if [[ $COMMAND_EXIT_CODE -ne 0 || -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
-              echo "No job found for branch $BRANCH_NAME. Retrying..."
+              echo "Failed to retrieve a job ID. Retrying..."
               ((RETRIES++))
               if [[ $RETRIES -ge $MAX_RETRIES ]]; then
                 echo "Timeout waiting for a job to be created in Amplify."
@@ -65,13 +69,15 @@ jobs:
               continue
             fi
 
-            set +e
-            STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}")
+            # Obtener el estado del trabajo
+            STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
             COMMAND_EXIT_CODE=$?
-            set -e
+
+            echo "STATUS output: $STATUS"
+            echo "Command exit code: $COMMAND_EXIT_CODE"
 
             if [[ $COMMAND_EXIT_CODE -ne 0 ]]; then
-              echo "Failed to get job status. Retrying..."
+              echo "Failed to retrieve job status. Retrying..."
               ((RETRIES++))
               if [[ $RETRIES -ge $MAX_RETRIES ]]; then
                 echo "Timeout waiting for deployment to complete."
@@ -92,7 +98,7 @@ jobs:
             elif [[ "$STATUS" == "RUNNING" ]]; then
               echo "Deployment still in progress... Retrying in 20 seconds."
             else
-              echo "Unexpected status: $STATUS"
+              echo "Unexpected status: $STATUS. Retrying..."
             fi
 
             ((RETRIES++))
