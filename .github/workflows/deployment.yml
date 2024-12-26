@@ -43,7 +43,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          set -e
+          set +e  # Deshabilitar el modo 'exit on error'
           BRANCH_NAME="$branch"
           MAX_RETRIES=40  # Número máximo de reintentos
           RETRIES=0
@@ -53,12 +53,7 @@ jobs:
             
             # Obtener el ID del trabajo actual
             JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
-            COMMAND_EXIT_CODE=$?
-
-            echo "JOB_ID output: $JOB_ID"
-            echo "Command exit code: $COMMAND_EXIT_CODE"
-
-            if [[ $COMMAND_EXIT_CODE -ne 0 || -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
+            if [[ $? -ne 0 || -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
               echo "Failed to retrieve a job ID. Retrying..."
               ((RETRIES++))
               if [[ $RETRIES -ge $MAX_RETRIES ]]; then
@@ -71,12 +66,7 @@ jobs:
 
             # Obtener el estado del trabajo
             STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
-            COMMAND_EXIT_CODE=$?
-
-            echo "STATUS output: $STATUS"
-            echo "Command exit code: $COMMAND_EXIT_CODE"
-
-            if [[ $COMMAND_EXIT_CODE -ne 0 ]]; then
+            if [[ $? -ne 0 ]]; then
               echo "Failed to retrieve job status. Retrying..."
               ((RETRIES++))
               if [[ $RETRIES -ge $MAX_RETRIES ]]; then
@@ -108,6 +98,8 @@ jobs:
             fi
             sleep 20
           done
+          set -e  # Rehabilitar el modo 'exit on error'
+
 
 
 
