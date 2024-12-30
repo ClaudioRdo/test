@@ -19,7 +19,6 @@ jobs:
       - name: Generate Amplify URL
         run:  |
           echo "AMPLIFY_URL=https://${{ vars.AMPLIFY_DOMAIN }}/${branch}" >> $GITHUB_ENV
-          echo "$AMPLIFY_URL"
 
       - name: Ensure Branch Exists in Amplify
         env:
@@ -103,6 +102,9 @@ jobs:
             sleep 40
           done
           set -e  # Rehabilitar el modo 'exit on error'
+
+      - name: Print all environment variables
+        run: printenv
 
 
       - name: Run Tests
