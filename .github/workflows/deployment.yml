@@ -18,7 +18,7 @@ jobs:
 
       - name: Generate Amplify URL
         run:  |
-          echo "AMPLIFY_URL=https://${{ vars.AMPLIFY_DOMAIN }}/${branch}" >> $GITHUB_ENV
+          echo "AMPLIFY_URL=https://${{ vars.AMPLIFY_DOMAIN }}/${env.branch}" >> $GITHUB_ENV
 
       - name: Ensure Branch Exists in Amplify
         env:
