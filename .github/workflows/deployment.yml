@@ -18,7 +18,7 @@ jobs:
 
       - name: Print AMPLIFY_DOMAIN
         run: |
-          echo "AMPLIFY_DOMAIN is: ${{ vars.DOMAIN_AMPLIFY }}"
+          echo "AMPLIFY_DOMAIN is: $DOMAIN_AMPLIFY"
 
       - name: Print Test Variable
         run: |
