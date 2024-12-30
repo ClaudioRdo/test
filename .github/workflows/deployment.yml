@@ -116,5 +116,4 @@ jobs:
 
 
       - name: Run Tests
-        run: |
-          echo "Running tests against deployed URL: $AMPLIFY_URL"
+        run: curl -I -s -o /dev/null -w "%{http_code}" $AMPLIFY_URL
