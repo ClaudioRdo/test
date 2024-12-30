@@ -18,7 +18,7 @@ jobs:
 
       - name: Print AMPLIFY_DOMAIN
         run: |
-          echo "AMPLIFY_DOMAIN is: ${{ vars.AMPLIFY_DOMAIN }}"
+          echo "AMPLIFY_DOMAIN is: ${{ vars.DOMAIN_AMPLIFY }}"
 
       - name: Print Test Variable
         run: |
@@ -26,7 +26,7 @@ jobs:
 
       - name: Generate Amplify URL
         run:  |
-          echo "AMPLIFY_URL=https://${{ vars.AMPLIFY_DOMAIN }}/${branch}" >> $GITHUB_ENV
+          echo "AMPLIFY_URL=https://${{ vars.DOMAIN_AMPLIFY }}/${branch}" >> $GITHUB_ENV
 
       - name: Ensure Branch Exists in Amplify
         env:
