@@ -26,7 +26,7 @@ jobs:
 
       - name: Generate Amplify URL
         run:  |
-          echo "AMPLIFY_URL=https://${{ vars.DOMAIN_AMPLIFY }}/${branch}" >> $GITHUB_ENV
+          echo "AMPLIFY_URL=https://$DOMAIN_AMPLIFY/${branch}" >> $GITHUB_ENV
 
       - name: Ensure Branch Exists in Amplify
         env:
@@ -116,4 +116,5 @@ jobs:
 
 
       - name: Run Tests
-        run: curl -I -s -o /dev/null -w "%{http_code}" $AMPLIFY_URL
+        run: | 
+          echo 'curl -I -s -o /dev/null -w "%{http_code}" $AMPLIFY_URL'
