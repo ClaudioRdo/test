@@ -12,13 +12,19 @@ jobs:
       - name: Checkout Repo B (suite de tests)
         uses: actions/checkout@v3
 
+      - name: Get var
+        env: 
+          MY_VAR: ${{ vars.DOMAIN_AMPLIFY }}
+        run: |
+          echo "asd"
+
       - name: Extract Branch Name
         id: extract_branch_name
         run: echo "branch=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
 
       - name: Print AMPLIFY_DOMAIN
         run: |
-          echo "AMPLIFY_DOMAIN is: $DOMAIN_AMPLIFY"
+          echo "AMPLIFY_DOMAIN is: $MY_VAR"
 
       - name: Print Test Variable
         run: |
