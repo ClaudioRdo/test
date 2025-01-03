@@ -12,19 +12,13 @@ jobs:
       - name: Checkout Repo B (suite de tests)
         uses: actions/checkout@v3
 
-      - name: Get var
-        env: 
-          MY_VAR: ${{ vars.DOMAIN_AMPLIFY }}
-        run: |
-          echo "asd"
-
       - name: Extract Branch Name
         id: extract_branch_name
         run: echo "branch=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
 
       - name: Print AMPLIFY_DOMAIN
         run: |
-          echo "AMPLIFY_DOMAIN is: $MY_VAR"
+          echo "AMPLIFY_DOMAIN is:  ${{ vars.DOMAIN }}"
 
       - name: Print Test Variable
         run: |
@@ -32,7 +26,7 @@ jobs:
 
       - name: Generate Amplify URL
         run:  |
-          echo "AMPLIFY_URL=https://$DOMAIN_AMPLIFY/${branch}" >> $GITHUB_ENV
+          echo "AMPLIFY_URL=https://${{ vars.DOMAIN }}/${branch}" >> $GITHUB_ENV
 
       - name: Ensure Branch Exists in Amplify
         env:
