@@ -116,5 +116,7 @@ jobs:
 
 
       - name: Run Tests
-        run: | 
-          echo 'curl -I -s -o /dev/null -w "%{http_code}" $AMPLIFY_URL'
+        run: |
+          URL="https://${{ env.branch }}.${{ vars.DOMAIN }}.amplifyapp.com"
+          echo "Making GET request to: $URL"
+          curl -s -o /dev/null -w "%{http_code}" $URL
