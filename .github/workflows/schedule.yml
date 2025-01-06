@@ -1,0 +1,45 @@
+name: MLOPS-Backend-E2E Schedule
+
+on:
+  schedule:
+    - cron: '50 12 * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.8]
+        scenario:
+          - name: 'codegen'
+            path: 'tests/e2e/code_gen'
+            tests:
+              - 'test_generate_code_gen.py'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run specific tests for scenario ${{ matrix.scenario.name }}
+        env:
+          TEST_APP: ${{ secrets.DEV_TEST_APP }}
+          RUN_ON_ACTIONS: true
+          TEST_SCENARIO: ${{ matrix.scenario.name }}
+        run: |
+          echo "Running specific tests for scenario: ${{ matrix.scenario.name }}"
+
+          for test_file in ${{ toJson(matrix.scenario.tests) }}; do
+            echo "Running $test_file..."
+            pytest ${matrix.scenario.path}/$test_file --maxfail=1 --disable-warnings -q
+          done
