@@ -1,0 +1,122 @@
+name: Deploy Branch and Run Tests
+
+on:
+  repository_dispatch:
+    types: [deploy-and-test]
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo B (suite de tests)
+        uses: actions/checkout@v3
+
+      - name: Extract Branch Name
+        id: extract_branch_name
+        run: echo "branch=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
+
+      - name: Print AMPLIFY_DOMAIN
+        run: |
+          echo "AMPLIFY_DOMAIN is:  ${{ vars.DOMAIN }}"
+
+      - name: Print Test Variable
+        run: |
+          echo "TEST_VARIABLE is: ${{ vars.TEST_VARIABLE }}"
+
+      - name: Generate Amplify URL
+        run:  |
+          echo "AMPLIFY_URL=https://${{ vars.DOMAIN }}/${branch}" >> $GITHUB_ENV
+
+      - name: Ensure Branch Exists in Amplify
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -e
+          BRANCH_NAME="$branch"
+          echo "Checking if branch $BRANCH_NAME exists in Amplify..."
+          BRANCH_EXISTS=$(aws amplify list-branches --app-id "${{ secrets.AMPLIFY_APP_ID }}" --query "branches[?branchName=='$BRANCH_NAME']" --output text --region "${{ secrets.AWS_REGION }}")
+
+          if [[ -z "$BRANCH_EXISTS" ]]; then
+            echo "Branch $BRANCH_NAME does not exist. Creating it in Amplify..."
+            aws amplify create-branch --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --region "${{ secrets.AWS_REGION }}"
+            echo "Starting deployment for branch $BRANCH_NAME..."
+            aws amplify start-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-type RELEASE --region "${{ secrets.AWS_REGION }}"
+          else
+            echo "Branch $BRANCH_NAME already exists. No need to create it."
+          fi
+
+      - name: Wait for Deployment to Complete
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set +e  # Deshabilitar el modo 'exit on error'
+          BRANCH_NAME="$branch"
+          MAX_RETRIES=10  # Número máximo de reintentos
+          RETRIES=0
+          
+          while true; do
+            echo "Attempt #$((RETRIES+1)) to check deployment status..."
+            
+            # Obtener el ID del trabajo actual
+            JOB_ID=$(aws amplify list-jobs --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --query 'jobSummaries[0].jobId' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
+            if [[ $? -ne 0 || -z "$JOB_ID" || "$JOB_ID" == "None" ]]; then
+              echo "Failed to retrieve a job ID. Retrying..."
+              ((RETRIES++))
+              if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+                echo "Timeout waiting for a job to be created in Amplify."
+                exit 1
+              fi
+              sleep 40
+              continue
+            fi
+
+            # Obtener el estado del trabajo
+            STATUS=$(aws amplify get-job --app-id "${{ secrets.AMPLIFY_APP_ID }}" --branch-name "$BRANCH_NAME" --job-id "$JOB_ID" --query 'job.summary.status' --output text --region "${{ secrets.AWS_REGION }}" 2>&1)
+            if [[ $? -ne 0 ]]; then
+              echo "Failed to retrieve job status. Retrying..."
+              ((RETRIES++))
+              if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+                echo "Timeout waiting for deployment to complete."
+                exit 1
+              fi
+              sleep 40
+              continue
+            fi
+
+            echo "Current status: $STATUS"
+
+            if [[ "$STATUS" == "SUCCEED" ]]; then
+              echo "Deployment succeeded!"
+              break
+            elif [[ "$STATUS" == "FAILED" ]]; then
+              echo "Deployment failed!"
+              exit 1
+            elif [[ "$STATUS" == "RUNNING" ]]; then
+              echo "Deployment still in progress... Retrying in 20 seconds."
+            else
+              echo "Unexpected status: $STATUS. Retrying..."
+            fi
+
+            ((RETRIES++))
+            if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+              echo "Timeout waiting for deployment to complete."
+              exit 1
+            fi
+            sleep 40
+          done
+          set -e  # Rehabilitar el modo 'exit on error'
+
+      - name: Print all environment variables
+        run: printenv
+
+
+      - name: Run Tests
+        run: |
+          URL="https://${{ env.branch }}.${{ vars.DOMAIN }}.amplifyapp.com"
+          echo "Making GET request to: $URL"
+          curl -s -o /dev/null -w "%{http_code}" $URL
