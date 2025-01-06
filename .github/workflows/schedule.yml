@@ -3,6 +3,7 @@ name: MLOPS-Backend-E2E Schedule
 on:
   schedule:
     - cron: '50 12 * * *'
+  workflow_dispatch:
 
 jobs:
   test:
